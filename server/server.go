@@ -2,8 +2,8 @@ package server
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
-	"io"
 	"net"
 	"net/http"
 
@@ -69,8 +69,8 @@ func (s *Server) buildRouter() *http.ServeMux {
 			s.getZone(rw, req)
 		case "PUT":
 			s.updateZone(rw, req)
-    case "DELETE":
-      s.deleteZone(rw, req)
+		case "DELETE":
+			s.deleteZone(rw, req)
 		default:
 			methodNotAllowed(rw)
 		}
@@ -103,84 +103,103 @@ func getZoneName(rw http.ResponseWriter, req *http.Request) string {
 		fmt.Fprintf(rw, "name parameter is required")
 	}
 
-  return zone
+	return zone
 }
 
 func (s *Server) getZone(rw http.ResponseWriter, req *http.Request) {
-	zone := getZoneName(rw, req)
-	if zone == "" {
+	name := getZoneName(rw, req)
+	if name == "" {
 		return
 	}
 
 	ctx := req.Context()
-	proxyAPIResponse(s.getZoneAPI(ctx, rw, zone))
+	zone, rz, err := s.getZoneAPI(ctx, name)
+	if _, err := s.storage.RecordZone(*zone); err != nil {
+		rw.WriteHeader(503)
+		fmt.Fprintf(rw, "problem recording zone: %v", err)
+	}
+	proxyAPIResponse(rw, rz, zone, err)
 }
 
 func (s *Server) updateZone(rw http.ResponseWriter, req *http.Request) {
-	zone := getZoneName(rw, req)
-	if zone == "" {
+	name := getZoneName(rw, req)
+	if name == "" {
 		return
 	}
 
-	present, err := s.recordZone(zone)
+	present, err := s.storage.CheckZone(name)
 	if err != nil {
+		rw.WriteHeader(503)
+		fmt.Fprintf(rw, "problem checking for zone: %v", err)
+	}
+
+	ctx := req.Context()
+
+	var rz *http.Response
+	var zone *dns.Zone
+	if present {
+		zone, rz, err = s.updateZoneAPI(ctx, name)
+	} else {
+		zone, rz, err = s.createZoneAPI(ctx, name)
+	}
+	if _, err := s.storage.RecordZone(*zone); err != nil {
 		rw.WriteHeader(503)
 		fmt.Fprintf(rw, "problem recording zone: %v", err)
 	}
 
-	ctx := req.Context()
-	if present {
-		proxyAPIResponse(s.updateZoneAPI(ctx, rw, zone))
-	} else {
-		proxyAPIResponse(s.createZoneAPI(ctx, rw, zone))
-	}
+	proxyAPIResponse(rw, rz, zone, err)
 }
 
 func (s *Server) deleteZone(rw http.ResponseWriter, req *http.Request) {
-	zone := getZoneName(rw, req)
-	if zone == "" {
+	name := getZoneName(rw, req)
+	if name == "" {
 		return
 	}
 
 	ctx := req.Context()
-  proxyAPIResponse(s.deleteZoneAPI(ctx, rw, zone))
+	rz, err := s.deleteZoneAPI(ctx, name)
+	proxyAPIResponse(rw, rz, nil, err)
 }
 
-func proxyAPIResponse(rw http.ResponseWriter, rz *http.Response, err error) {
+func proxyAPIResponse(rw http.ResponseWriter, rz *http.Response, body interface{}, err error) {
 	if rz == nil {
 		rw.WriteHeader(503)
 	} else {
 		rw.WriteHeader(rz.StatusCode)
 	}
+
 	if err != nil {
 		fmt.Fprintf(rw, "problem updating NS1: %v", err)
+		return
 	}
 
-	io.Copy(rw, rz.Body)
+	if rz.StatusCode != 200 || body == nil {
+		return
+	}
+
+	if err := json.NewEncoder(rw).Encode(body); err != nil {
+		panic(err) // XXX but we already wrote a status...
+	}
 }
 
-func (s *Server) recordZone(zone string) (bool, error) {
-	return s.storage.RecordZone(zone)
+func (s *Server) getZoneAPI(ctx context.Context, name string) (*dns.Zone, *http.Response, error) {
+	zone, rz, err := s.ns1Client(ctx).Zones.Get(name)
+	return zone, rz, err
 }
 
-func (s *Server) getZoneAPI(ctx context.Context, rw http.ResponseWriter, zone string) (http.ResponseWriter, *http.Response, error) {
-	_, rz, err := s.ns1Client(ctx).Zones.Get(zone)
-	return rw, rz, err
-}
-
-func (s *Server) createZoneAPI(ctx context.Context, rw http.ResponseWriter, zone string) (http.ResponseWriter, *http.Response, error) {
+func (s *Server) createZoneAPI(ctx context.Context, zone string) (*dns.Zone, *http.Response, error) {
 	z := dns.NewZone(zone)
 	rz, err := s.ns1Client(ctx).Zones.Create(z)
-	return rw, rz, err
+
+	return z, rz, err
 }
 
-func (s *Server) updateZoneAPI(ctx context.Context, rw http.ResponseWriter, zone string) (http.ResponseWriter, *http.Response, error) {
+func (s *Server) updateZoneAPI(ctx context.Context, zone string) (*dns.Zone, *http.Response, error) {
 	z := dns.NewZone(zone)
 	rz, err := s.ns1Client(ctx).Zones.Update(z)
-	return rw, rz, err
+	return z, rz, err
 }
 
-func (s *Server) deleteZoneAPI(ctx context.Context, rw http.ResponseWriter, zone string) (http.ResponseWriter, *http.Response, error) {
-	rz, err := s.ns1Client(ctx).Zones.Delete(zone)
-	return rw, rz, err
+func (s *Server) deleteZoneAPI(ctx context.Context, zone string) (*http.Response, error) {
+	return s.ns1Client(ctx).Zones.Delete(zone)
 }

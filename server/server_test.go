@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/dnaeon/go-vcr/cassette"
@@ -44,9 +45,9 @@ func testHarness(t *testing.T) harness {
 	})
 
 	return harness{
-		mux:   server.buildRouter(),
-		store: store,
-    stopVCR: func() { vcr.Stop() },
+		mux:     server.buildRouter(),
+		store:   store,
+		stopVCR: func() { vcr.Stop() },
 	}
 }
 
@@ -66,6 +67,9 @@ func TestGetZone(t *testing.T) {
 	if rz.StatusCode != 200 {
 		t.Errorf("Expected 200 response, but status was %s \n%s", rz.Status, recorder.Body.String())
 	}
+	if strings.Index(recorder.Body.String(), "jdl-example.com") == -1 {
+		t.Errorf("Body doesn't include zone name: %q", recorder.Body.String())
+	}
 }
 
 func TestUpdateZone(t *testing.T) {
@@ -82,12 +86,16 @@ func TestUpdateZone(t *testing.T) {
 	if rz.StatusCode != 200 {
 		t.Errorf("Expected 200 response, but status was %s \n%s", rz.Status, recorder.Body.String())
 	}
+	if strings.Index(recorder.Body.String(), "jdl-example.com") == -1 {
+		t.Errorf("Body doesn't include zone name: %q", recorder.Body.String())
+	}
 }
 
 func TestUpdateExistingZone(t *testing.T) {
 	recorder := httptest.NewRecorder()
 	harness := testHarness(t)
 	harness.store.MatchMethod("RecordZone", spies.AnyArgs, true, nil)
+	harness.store.MatchMethod("CheckZone", spies.AnyArgs, true, nil)
 	defer harness.stopVCR()
 
 	req := httptest.NewRequest("PUT", "/zone", nil)
@@ -97,6 +105,9 @@ func TestUpdateExistingZone(t *testing.T) {
 
 	if rz.StatusCode != 200 {
 		t.Errorf("Expected 200 response, but status was %s \n%s", rz.Status, recorder.Body.String())
+	}
+	if strings.Index(recorder.Body.String(), "jdl-example.com") == -1 {
+		t.Errorf("Body doesn't include zone name: %q", recorder.Body.String())
 	}
 }
 
@@ -113,4 +124,7 @@ func TestDeleteZone(t *testing.T) {
 	if rz.StatusCode != 200 {
 		t.Errorf("Expected 200 response, but status was %s \n%s", rz.Status, recorder.Body.String())
 	}
+  if len(recorder.Body.String()) > 0 {
+    t.Errorf("Body is not empty: %q", recorder.Body.String())
+  }
 }
