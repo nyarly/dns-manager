@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"log"
 	"net"
 	"net/http"
 
@@ -66,8 +65,12 @@ func (s *Server) buildRouter() *http.ServeMux {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/zone", func(rw http.ResponseWriter, req *http.Request) {
 		switch req.Method {
+		case "GET":
+			s.getZone(rw, req)
 		case "PUT":
 			s.updateZone(rw, req)
+    case "DELETE":
+      s.deleteZone(rw, req)
 		default:
 			methodNotAllowed(rw)
 		}
@@ -91,32 +94,64 @@ func methodNotAllowed(rw http.ResponseWriter) {
 	rw.WriteHeader(405)
 }
 
-func (s *Server) updateZone(rw http.ResponseWriter, req *http.Request) {
-  log.Printf("req: %#v", req)
-  log.Printf("url: %#v", req.URL)
+func getZoneName(rw http.ResponseWriter, req *http.Request) string {
 	query := req.URL.Query()  // TODO handle errors
 	zone := query.Get("name") // TODO handle errors here
+
 	if zone == "" {
 		rw.WriteHeader(400)
 		fmt.Fprintf(rw, "name parameter is required")
+	}
+
+  return zone
+}
+
+func (s *Server) getZone(rw http.ResponseWriter, req *http.Request) {
+	zone := getZoneName(rw, req)
+	if zone == "" {
 		return
 	}
 
-	if err := s.recordZone(zone); err != nil {
+	ctx := req.Context()
+	proxyAPIResponse(s.getZoneAPI(ctx, rw, zone))
+}
+
+func (s *Server) updateZone(rw http.ResponseWriter, req *http.Request) {
+	zone := getZoneName(rw, req)
+	if zone == "" {
+		return
+	}
+
+	present, err := s.recordZone(zone)
+	if err != nil {
 		rw.WriteHeader(503)
 		fmt.Fprintf(rw, "problem recording zone: %v", err)
 	}
 
 	ctx := req.Context()
-	proxyAPIResponse(s.createZoneAPI(ctx, rw, zone))
+	if present {
+		proxyAPIResponse(s.updateZoneAPI(ctx, rw, zone))
+	} else {
+		proxyAPIResponse(s.createZoneAPI(ctx, rw, zone))
+	}
+}
+
+func (s *Server) deleteZone(rw http.ResponseWriter, req *http.Request) {
+	zone := getZoneName(rw, req)
+	if zone == "" {
+		return
+	}
+
+	ctx := req.Context()
+  proxyAPIResponse(s.deleteZoneAPI(ctx, rw, zone))
 }
 
 func proxyAPIResponse(rw http.ResponseWriter, rz *http.Response, err error) {
-  if rz == nil {
+	if rz == nil {
 		rw.WriteHeader(503)
-  } else {
-    rw.WriteHeader(rz.StatusCode)
-  }
+	} else {
+		rw.WriteHeader(rz.StatusCode)
+	}
 	if err != nil {
 		fmt.Fprintf(rw, "problem updating NS1: %v", err)
 	}
@@ -124,12 +159,28 @@ func proxyAPIResponse(rw http.ResponseWriter, rz *http.Response, err error) {
 	io.Copy(rw, rz.Body)
 }
 
-func (s *Server) recordZone(zone string) error {
+func (s *Server) recordZone(zone string) (bool, error) {
 	return s.storage.RecordZone(zone)
+}
+
+func (s *Server) getZoneAPI(ctx context.Context, rw http.ResponseWriter, zone string) (http.ResponseWriter, *http.Response, error) {
+	_, rz, err := s.ns1Client(ctx).Zones.Get(zone)
+	return rw, rz, err
 }
 
 func (s *Server) createZoneAPI(ctx context.Context, rw http.ResponseWriter, zone string) (http.ResponseWriter, *http.Response, error) {
 	z := dns.NewZone(zone)
 	rz, err := s.ns1Client(ctx).Zones.Create(z)
+	return rw, rz, err
+}
+
+func (s *Server) updateZoneAPI(ctx context.Context, rw http.ResponseWriter, zone string) (http.ResponseWriter, *http.Response, error) {
+	z := dns.NewZone(zone)
+	rz, err := s.ns1Client(ctx).Zones.Update(z)
+	return rw, rz, err
+}
+
+func (s *Server) deleteZoneAPI(ctx context.Context, rw http.ResponseWriter, zone string) (http.ResponseWriter, *http.Response, error) {
+	rz, err := s.ns1Client(ctx).Zones.Delete(zone)
 	return rw, rz, err
 }

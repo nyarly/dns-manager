@@ -13,7 +13,7 @@ func NewSpy() *Spy {
 }
 
 // RecordZone implements Storage on Spy
-func (spy *Spy) RecordZone(zone string) error {
+func (spy *Spy) RecordZone(zone string) (bool, error) {
   res := spy.Called(zone)
-  return res.Error(0)
+  return res.Bool(0), res.Error(1)
 }

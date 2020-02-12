@@ -2,14 +2,13 @@
 version: 1
 interactions:
 - request:
-    body: |
-      {"zone":"jdl-example.com"}
+    body: ""
     form: {}
     headers:
       User-Agent:
       - go-ns1/2.2.0
     url: https://api.nsone.net/v1/zones/jdl-example.com
-    method: POST
+    method: GET
   response:
     body: |
       {"nx_ttl":3600,"retry":7200,"zone":"jdl-example.com","dnssec":false,"network_pools":["p06"],"serial":1581544926,"primary":{"enabled":false,"secondaries":[]},"refresh":43200,"expiry":1209600,"disabled":false,"records":[{"domain":"jdl-example.com","short_answers":["dns1.p06.nsone.net","dns2.p06.nsone.net","dns3.p06.nsone.net","dns4.p06.nsone.net"],"ttl":3600,"tier":1,"type":"NS","id":"5e445cdc73cb6900c85c048c"}],"meta":{},"link":null,"primary_master":"dns1.p06.nsone.net","ttl":3600,"id":"5e445cdc73cb6900c85c0487","dns_servers":["dns1.p06.nsone.net","dns2.p06.nsone.net","dns3.p06.nsone.net","dns4.p06.nsone.net"],"hostmaster":"hostmaster@nsone.net","networks":[0],"pool":"p06"}
@@ -20,25 +19,27 @@ interactions:
       Cf-Cache-Status:
       - DYNAMIC
       Cf-Ray:
-      - 5641d84a3ade7904-LAX
+      - 5641f9566f58d34a-LAX
       Content-Security-Policy-Report-Only:
       - 'script-src blob: ''unsafe-inline'' ''unsafe-eval'' ''self'' *.nsone.net *.nsone.co;
         report-uri https://cspaudit.prod.ns1.dev'
       Content-Type:
       - application/json
       Date:
-      - Wed, 12 Feb 2020 22:02:06 GMT
+      - Wed, 12 Feb 2020 22:24:39 GMT
+      Etag:
+      - W/"44232c99b8e49c32773219c9dc7488c0719cb1e4"
       Expect-Ct:
       - max-age=604800, report-uri="https://report-uri.cloudflare.com/cdn-cgi/beacon/expect-ct"
       Expires:
-      - Wed, 12 Feb 2020 22:02:05 GMT
+      - Wed, 12 Feb 2020 22:24:38 GMT
       Pragma:
       - no-cache
       Server:
       - cloudflare
       Set-Cookie:
-      - __cfduid=dd39dc11f2e00eb87ba3d6d51e139544d1581544925; expires=Fri, 13-Mar-20
-        22:02:05 GMT; path=/; domain=.nsone.net; HttpOnly; SameSite=Lax
+      - __cfduid=d86855eca894a3c7992c3e6edc3c251591581546279; expires=Fri, 13-Mar-20
+        22:24:39 GMT; path=/; domain=.nsone.net; HttpOnly; SameSite=Lax
       Strict-Transport-Security:
       - max-age=63072000; includeSubdomains; preload
       X-Content-Type-Options:
@@ -48,11 +49,11 @@ interactions:
       X-Ratelimit-By:
       - customer
       X-Ratelimit-Limit:
-      - "300"
+      - "900"
       X-Ratelimit-Period:
       - "300"
       X-Ratelimit-Remaining:
-      - "299"
+      - "899"
       X-Xss-Protection:
       - 1; mode=block
     status: 200 OK

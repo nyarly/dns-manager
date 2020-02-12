@@ -11,12 +11,14 @@ import (
 	"github.com/dnaeon/go-vcr/cassette"
 	govcr "github.com/dnaeon/go-vcr/recorder"
 	"github.com/nyarly/dns-manager/storage"
+	"github.com/nyarly/spies"
 	ns1 "gopkg.in/ns1/ns1-go.v2/rest"
 )
 
 type harness struct {
-	mux      *http.ServeMux
-	store    *storage.Spy
+	mux     *http.ServeMux
+	store   *storage.Spy
+	stopVCR func()
 }
 
 func testHarness(t *testing.T) harness {
@@ -29,7 +31,6 @@ func testHarness(t *testing.T) harness {
 		delete(i.Request.Headers, "X-Nsone-Key")
 		return nil
 	})
-	defer vcr.Stop()
 	key := os.Getenv("NS1_APIKEY")
 	if key == "" {
 		t.Fatal("Test needs NS1_APIKEY environment variable to run")
@@ -43,30 +44,68 @@ func testHarness(t *testing.T) harness {
 	})
 
 	return harness{
-		mux:      server.buildRouter(),
-		store:    store,
+		mux:   server.buildRouter(),
+		store: store,
+    stopVCR: func() { vcr.Stop() },
 	}
 }
 
-func TestUpdateExistingZone(t *testing.T) {
-  recorder := httptest.NewRecorder()
+// TODO assertions about storage use
+// Body contents
+
+func TestGetZone(t *testing.T) {
+	recorder := httptest.NewRecorder()
 	harness := testHarness(t)
+	defer harness.stopVCR()
+
+	req := httptest.NewRequest("GET", "/zone", nil)
+	req.URL.RawQuery = "name=jdl-example.com"
+	harness.mux.ServeHTTP(recorder, req)
+	rz := recorder.Result()
+
+	if rz.StatusCode != 200 {
+		t.Errorf("Expected 200 response, but status was %s \n%s", rz.Status, recorder.Body.String())
+	}
+}
+
+func TestUpdateZone(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	harness := testHarness(t)
+	harness.store.MatchMethod("RecordZone", spies.AnyArgs, false, nil)
+	defer harness.stopVCR()
 
 	req := httptest.NewRequest("PUT", "/zone", nil)
 	req.URL.RawQuery = "name=jdl-example.com"
 	harness.mux.ServeHTTP(recorder, req)
 	rz := recorder.Result()
 
-	if rz.StatusCode != 400 {
-		t.Errorf("Expected 400 response (echoed from NS1), but status was %s \n%s", rz.Status, recorder.Body.String())
+	if rz.StatusCode != 200 {
+		t.Errorf("Expected 200 response, but status was %s \n%s", rz.Status, recorder.Body.String())
 	}
 }
 
-func TestUpdateZone(t *testing.T) {
-  recorder := httptest.NewRecorder()
+func TestUpdateExistingZone(t *testing.T) {
+	recorder := httptest.NewRecorder()
 	harness := testHarness(t)
+	harness.store.MatchMethod("RecordZone", spies.AnyArgs, true, nil)
+	defer harness.stopVCR()
 
 	req := httptest.NewRequest("PUT", "/zone", nil)
+	req.URL.RawQuery = "name=jdl-example.com"
+	harness.mux.ServeHTTP(recorder, req)
+	rz := recorder.Result()
+
+	if rz.StatusCode != 200 {
+		t.Errorf("Expected 200 response, but status was %s \n%s", rz.Status, recorder.Body.String())
+	}
+}
+
+func TestDeleteZone(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	harness := testHarness(t)
+	defer harness.stopVCR()
+
+	req := httptest.NewRequest("DELETE", "/zone", nil)
 	req.URL.RawQuery = "name=jdl-example.com"
 	harness.mux.ServeHTTP(recorder, req)
 	rz := recorder.Result()
