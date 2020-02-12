@@ -1,0 +1,50 @@
+---
+version: 1
+interactions:
+- request:
+    body: |
+      {"zone":"jdl-example.com"}
+    form: {}
+    headers:
+      User-Agent:
+      - go-ns1/2.2.0
+    url: https://api.nsone.net/v1/zones/jdl-example.com
+    method: PUT
+  response:
+    body: |
+      {"message":"zone already exists"}
+    headers:
+      Cache-Control:
+      - no-cache
+      Cf-Cache-Status:
+      - DYNAMIC
+      Cf-Ray:
+      - 564138239a2d7830-LAX
+      Content-Length:
+      - "34"
+      Content-Type:
+      - application/json
+      Date:
+      - Wed, 12 Feb 2020 20:12:46 GMT
+      Expect-Ct:
+      - max-age=604800, report-uri="https://report-uri.cloudflare.com/cdn-cgi/beacon/expect-ct"
+      Expires:
+      - "0"
+      Pragma:
+      - no-cache
+      Server:
+      - cloudflare
+      Set-Cookie:
+      - __cfduid=d1fb15543259c36a04b0027bd37e490f01581538366; expires=Fri, 13-Mar-20
+        20:12:46 GMT; path=/; domain=.nsone.net; HttpOnly; SameSite=Lax
+      X-Ratelimit-By:
+      - customer
+      X-Ratelimit-Limit:
+      - "200"
+      X-Ratelimit-Period:
+      - "300"
+      X-Ratelimit-Remaining:
+      - "199"
+    status: 400 Bad Request
+    code: 400
+    duration: ""

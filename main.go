@@ -10,6 +10,4 @@ func main() {
 }
 
 func setup() {
-  rootCmd.AddCommand(testCmd)
-
 }
