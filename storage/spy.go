@@ -33,3 +33,22 @@ func (spy *Spy) DeleteZone(name string) (bool, error) {
 	res := spy.Called(name)
 	return res.Bool(0), res.Error(1)
 }
+
+// GetRecord implements Storage on Spy
+func (spy *Spy) GetRecord(zone, domain, kind string) (*dns.Record, error) {
+	res := spy.Called(zone, domain, kind)
+  var empty *dns.Record
+	return res.GetOr(0, empty).(*dns.Record), res.Error(1)
+}
+
+// RecordRecord implements Storage on Spy
+func (spy *Spy) RecordRecord(record dns.Record) (bool, error) {
+	res := spy.Called(record)
+	return res.Bool(0), res.Error(1)
+}
+
+// DeleteRecord implements Storage on Spy
+func (spy *Spy) DeleteRecord(zone, domain, kind string) (bool, error) {
+	res := spy.Called(zone, domain, kind)
+	return res.Bool(0), res.Error(1)
+}

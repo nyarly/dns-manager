@@ -12,12 +12,19 @@ import (
 
 // Storage is an interface for managing local persistence for DNSManager
 type Storage interface {
-	// Check Zone reports whether a zone name exists in the store already
+	// GetZone retreives a zone from the store by name
 	GetZone(string) (*dns.Zone, error)
 	// RecordZone persists a zone. Returns true if the zone was already persisted
 	RecordZone(dns.Zone) (bool, error)
-	// RecordZone persists a zone name. Returns true if the zone was already persisted
+	// DeleteZone removes a zone from storage
 	DeleteZone(string) (bool, error)
+	// GetRecord retreives a record from the store by name
+	GetRecord(string, string, string) (*dns.Record, error)
+	// RecordRecord persists a record. Returns true if the record was already persisted
+	//   note that it's VerbNoun, not just a repetition in the name
+	RecordRecord(dns.Record) (bool, error)
+	// DeleteRecord removes a record from storage by name
+	DeleteRecord(string, string, string) (bool, error)
 }
 
 type textFile struct {
@@ -26,7 +33,8 @@ type textFile struct {
 
 // Stored is the format for the textFile persistence layer
 type Stored struct {
-	Zones []dns.Zone
+	Zones   []dns.Zone
+	Records []dns.Record
 }
 
 // New constructs an on-disk Storage at the given path
@@ -141,6 +149,73 @@ func (tf textFile) DeleteZone(name string) (bool, error) {
 	}
 
 	stored.Zones = zones
+	err = tf.store(stored)
+	return found, err
+}
+
+func (tf textFile) GetRecord(zone, domain, kind string) (*dns.Record, error) {
+	stored, err := tf.load()
+	if err != nil {
+		return nil, err
+	}
+
+	records := stored.Records
+
+	for _, r := range records {
+		if r.Zone == zone && r.Domain == domain && r.Type == kind {
+			return &r, nil
+		}
+	}
+
+	return nil, nil
+}
+
+func (tf textFile) RecordRecord(record dns.Record) (bool, error) {
+	stored, err := tf.load()
+	if err != nil {
+		return false, err
+	}
+
+	records := stored.Records
+
+	found := false
+	for i, r := range records {
+		if r.Zone == record.Zone && r.Domain == record.Domain && r.Type == record.Type {
+			records[i] = record
+			found = true
+			break
+		}
+	}
+	if !found {
+		records = append(records, record)
+	}
+	stored.Records = records
+	err = tf.store(stored)
+	return found, err
+}
+
+func (tf textFile) DeleteRecord(zone, domain, kind string) (bool, error) {
+	stored, err := tf.load()
+	if err != nil {
+		return false, err
+	}
+
+	records := stored.Records
+
+	found := false
+	for i, r := range records {
+		if r.Zone == zone && r.Domain == domain && r.Type == kind {
+			chopped := len(records) - 1
+			records[i] = records[chopped]
+			records = records[:chopped]
+			found = true
+			break
+		}
+	}
+	if !found {
+		return false, nil
+	}
+	stored.Records = records
 	err = tf.store(stored)
 	return found, err
 }
