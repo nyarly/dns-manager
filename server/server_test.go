@@ -14,6 +14,7 @@ import (
 	"github.com/nyarly/dns-manager/storage"
 	"github.com/nyarly/spies"
 	ns1 "gopkg.in/ns1/ns1-go.v2/rest"
+	"gopkg.in/ns1/ns1-go.v2/rest/model/dns"
 )
 
 type harness struct {
@@ -95,7 +96,7 @@ func TestUpdateExistingZone(t *testing.T) {
 	recorder := httptest.NewRecorder()
 	harness := testHarness(t)
 	harness.store.MatchMethod("RecordZone", spies.AnyArgs, true, nil)
-	harness.store.MatchMethod("CheckZone", spies.AnyArgs, true, nil)
+	harness.store.MatchMethod("GetZone", spies.AnyArgs, dns.NewZone("jdl-example.com"), nil)
 	defer harness.stopVCR()
 
 	req := httptest.NewRequest("PUT", "/zone", nil)
@@ -124,7 +125,7 @@ func TestDeleteZone(t *testing.T) {
 	if rz.StatusCode != 200 {
 		t.Errorf("Expected 200 response, but status was %s \n%s", rz.Status, recorder.Body.String())
 	}
-  if len(recorder.Body.String()) > 0 {
-    t.Errorf("Body is not empty: %q", recorder.Body.String())
-  }
+	if len(recorder.Body.String()) > 0 {
+		t.Errorf("Body is not empty: %q", recorder.Body.String())
+	}
 }

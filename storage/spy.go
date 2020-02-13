@@ -15,10 +15,11 @@ func NewSpy() *Spy {
 	return &Spy{spies.NewSpy()}
 }
 
-// CheckZone implements Storage on Spy
-func (spy *Spy) CheckZone(name string) (bool, error) {
+// GetZone implements Storage on Spy
+func (spy *Spy) GetZone(name string) (*dns.Zone, error) {
 	res := spy.Called(name)
-	return res.Bool(0), res.Error(1)
+  var empty *dns.Zone
+	return res.GetOr(0, empty).(*dns.Zone), res.Error(1)
 }
 
 // RecordZone implements Storage on Spy

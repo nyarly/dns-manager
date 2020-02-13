@@ -127,7 +127,7 @@ func (s *Server) updateZone(rw http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	present, err := s.storage.CheckZone(name)
+	existing, err := s.storage.GetZone(name)
 	if err != nil {
 		rw.WriteHeader(503)
 		fmt.Fprintf(rw, "problem checking for zone: %v", err)
@@ -137,10 +137,10 @@ func (s *Server) updateZone(rw http.ResponseWriter, req *http.Request) {
 
 	var rz *http.Response
 	var zone *dns.Zone
-	if present {
-		zone, rz, err = s.updateZoneAPI(ctx, name)
-	} else {
+	if existing == nil {
 		zone, rz, err = s.createZoneAPI(ctx, name)
+	} else {
+		zone, rz, err = s.updateZoneAPI(ctx, name)
 	}
 	if _, err := s.storage.RecordZone(*zone); err != nil {
 		rw.WriteHeader(503)

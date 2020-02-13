@@ -2,6 +2,7 @@ package storage
 
 import (
 	"encoding/json"
+	"errors"
 	"io/ioutil"
 	"os"
 	"strings"
@@ -12,7 +13,7 @@ import (
 // Storage is an interface for managing local persistence for DNSManager
 type Storage interface {
 	// Check Zone reports whether a zone name exists in the store already
-	CheckZone(string) (bool, error)
+	GetZone(string) (*dns.Zone, error)
 	// RecordZone persists a zone. Returns true if the zone was already persisted
 	RecordZone(dns.Zone) (bool, error)
 	// RecordZone persists a zone name. Returns true if the zone was already persisted
@@ -35,7 +36,11 @@ func New(path string) Storage {
 
 func (tf textFile) load() (*Stored, error) {
 	f, err := os.Open(tf.path)
+
 	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return &Stored{}, nil
+		}
 		return nil, err
 	}
 	defer f.Close()
@@ -71,21 +76,21 @@ func (tf textFile) listZones() ([]string, error) {
 	return strings.Split(string(contents), "\n"), nil
 }
 
-func (tf textFile) CheckZone(name string) (bool, error) {
+func (tf textFile) GetZone(name string) (*dns.Zone, error) {
 	stored, err := tf.load()
 	if err != nil {
-		return false, err
+		return nil, err
 	}
 
 	zones := stored.Zones
 
 	for _, z := range zones {
 		if name == z.Zone {
-			return true, nil
+			return &z, nil
 		}
 	}
 
-	return false, nil
+	return nil, nil
 }
 
 func (tf textFile) RecordZone(zone dns.Zone) (bool, error) {
