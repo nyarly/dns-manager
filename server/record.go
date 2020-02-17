@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+
+	"gopkg.in/ns1/ns1-go.v2/rest/model/dns"
 )
 
 func getRecordParams(rw http.ResponseWriter, req *http.Request) (string, string, string) {
@@ -13,23 +15,23 @@ func getRecordParams(rw http.ResponseWriter, req *http.Request) (string, string,
 	domain := query.Get("domain") // TODO handle errors here
 	kind := query.Get("type")     // TODO handle errors here
 
-	if zone == "" || domain == "" || kind == ""{
+	if zone == "" || domain == "" || kind == "" {
 		rw.WriteHeader(400)
 		fmt.Fprintf(rw, "parameters for zone, domain and kind are all required")
-    return "", "", ""
+		return "", "", ""
 	}
 
 	return zone, domain, kind
 }
 
 func (s *Server) getRecord(rw http.ResponseWriter, req *http.Request) {
-	zone, domain, kind := getRecordParams(rw, req)
-	if zone == "" {
+	name, domain, kind := getRecordParams(rw, req)
+	if name == "" {
 		return
 	}
 
 	ctx := req.Context()
-	zone, rz, err := s.getRecordAPI(ctx, zone, domain, kind)
+	zone, rz, err := s.getRecordAPI(ctx, name, domain, kind)
 	if _, err := s.storage.RecordRecord(*zone); err != nil {
 		rw.WriteHeader(503)
 		fmt.Fprintf(rw, "problem recording zone: %v", err)
@@ -38,84 +40,76 @@ func (s *Server) getRecord(rw http.ResponseWriter, req *http.Request) {
 }
 
 func (s *Server) updateRecord(rw http.ResponseWriter, req *http.Request) {
-	zone, domain, kind := getRecordParams(rw, req)
-	if zone == "" {
+	name, domain, kind := getRecordParams(rw, req)
+	if name == "" {
 		return
 	}
 
-	existing, err := s.storage.GetRecord(zone, domain, kind)
+	existing, err := s.storage.GetRecord(name, domain, kind)
 	if err != nil {
 		rw.WriteHeader(503)
 		fmt.Fprintf(rw, "problem checking for zone: %v", err)
 	}
 
+	answers := [][]string{}
+	if err := json.NewDecoder(req.Body).Decode(&answers); err != nil {
+		rw.WriteHeader(400)
+		fmt.Fprintf(rw, "body of request ill formed: %v", err)
+	}
+  record := buildRecord(name, domain, kind, answers)
+
 	ctx := req.Context()
 
 	var rz *http.Response
-	var zone *dns.Record
 	if existing == nil {
-		zone, rz, err = s.createRecordAPI(ctx, zone, domain, kind)
+		rz, err = s.createRecordAPI(ctx, record)
 	} else {
-		zone, rz, err = s.updateRecordAPI(ctx, zone, domain, kind)
+		rz, err = s.updateRecordAPI(ctx, record)
 	}
-	if _, err := s.storage.RecordRecord(*zone); err != nil {
+	if _, err := s.storage.RecordRecord(*record); err != nil {
 		rw.WriteHeader(503)
 		fmt.Fprintf(rw, "problem recording zone: %v", err)
 	}
 
-	proxyAPIResponse(rw, rz, zone, err)
+	proxyAPIResponse(rw, rz, record, err)
+}
+
+func buildRecord(name, domain, kind string, answers [][]string) *dns.Record {
+	rr := dns.NewRecord(name, domain, kind)
+  for _, a := range answers {
+    ans := dns.NewAnswer(a)
+    rr.AddAnswer(ans)
+  }
+  return rr
 }
 
 func (s *Server) deleteRecord(rw http.ResponseWriter, req *http.Request) {
-	zone, domain, kind := getRecordParams(rw, req)
-	if zone == "" {
+	name, domain, kind := getRecordParams(rw, req)
+	if name == "" {
 		return
 	}
 
 	ctx := req.Context()
-	rz, err := s.deleteRecordAPI(ctx, zone, domain, kind)
+	rz, err := s.deleteRecordAPI(ctx, name, domain, kind)
 	proxyAPIResponse(rw, rz, nil, err)
 }
 
-func proxyAPIResponse(rw http.ResponseWriter, rz *http.Response, body interface{}, err error) {
-	if rz == nil {
-		rw.WriteHeader(503)
-	} else {
-		rw.WriteHeader(rz.StatusCode)
-	}
-
-	if err != nil {
-		fmt.Fprintf(rw, "problem updating NS1: %v", err)
-		return
-	}
-
-	if rz.StatusCode != 200 || body == nil {
-		return
-	}
-
-	if err := json.NewEncoder(rw).Encode(body); err != nil {
-		panic(err) // XXX but we already wrote a status...
-	}
-}
-
-func (s *Server) getRecordAPI(ctx context.Context, zone, domain, kind string) (*dns.Record, *http.Response, error) {
-	zone, rz, err := s.ns1Client(ctx).Records.Get(zone, domain, kind)
+func (s *Server) getRecordAPI(ctx context.Context, name, domain, kind string) (*dns.Record, *http.Response, error) {
+	zone, rz, err := s.ns1Client(ctx).Records.Get(name, domain, kind)
 	return zone, rz, err
 }
 
-func (s *Server) createRecordAPI(ctx context.Context, zone string) (*dns.Record, *http.Response, error) {
-	z := dns.NewRecord(zone)
-	rz, err := s.ns1Client(ctx).Records.Create(z)
+func (s *Server) createRecordAPI(ctx context.Context, record *dns.Record) (*http.Response, error) {
+	rz, err := s.ns1Client(ctx).Records.Create(record)
 
-	return z, rz, err
+	return rz, err
 }
 
-func (s *Server) updateRecordAPI(ctx context.Context, zone string) (*dns.Record, *http.Response, error) {
-	z := dns.NewRecord(zone)
-	rz, err := s.ns1Client(ctx).Records.Update(z)
-	return z, rz, err
+func (s *Server) updateRecordAPI(ctx context.Context, record *dns.Record) (*http.Response, error) {
+	rz, err := s.ns1Client(ctx).Records.Update(record)
+	return rz, err
 }
 
-func (s *Server) deleteRecordAPI(ctx context.Context, zone string) (*http.Response, error) {
-	return s.ns1Client(ctx).Records.Delete(zone)
+func (s *Server) deleteRecordAPI(ctx context.Context, name, domain, kind string) (*http.Response, error) {
+	return s.ns1Client(ctx).Records.Delete(name, domain, kind)
 }

@@ -1,8 +1,12 @@
 package server
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
+	"flag"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -17,6 +21,8 @@ import (
 	"gopkg.in/ns1/ns1-go.v2/rest/model/dns"
 )
 
+var recordMode = flag.Bool("record", false, "update VCR files")
+
 type harness struct {
 	mux     *http.ServeMux
 	store   *storage.Spy
@@ -25,7 +31,11 @@ type harness struct {
 
 func testHarness(t *testing.T) harness {
 	t.Helper()
-	vcr, err := govcr.New(fmt.Sprintf("testdata/cassettes/%s", t.Name()))
+	vcrMode := govcr.ModeReplaying
+	if *recordMode {
+		vcrMode = govcr.ModeRecording
+	}
+	vcr, err := govcr.NewAsMode(fmt.Sprintf("testdata/cassettes/%s", t.Name()), vcrMode, nil)
 	if err != nil {
 		t.Fatalf("Error with VCR: %v", err)
 	}
@@ -50,6 +60,15 @@ func testHarness(t *testing.T) harness {
 		store:   store,
 		stopVCR: func() { vcr.Stop() },
 	}
+}
+
+func buildBody(t *testing.T, v interface{}) io.Reader {
+	t.Helper()
+	b := bytes.Buffer{}
+	if err := json.NewEncoder(&b).Encode(v); err != nil {
+		t.Fatal(err)
+	}
+	return &b
 }
 
 // TODO assertions about storage use
@@ -127,5 +146,24 @@ func TestDeleteZone(t *testing.T) {
 	}
 	if len(recorder.Body.String()) > 0 {
 		t.Errorf("Body is not empty: %q", recorder.Body.String())
+	}
+}
+
+func TestCreateRecord(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	harness := testHarness(t)
+	defer harness.stopVCR()
+
+	req := httptest.NewRequest("PUT", "/record", buildBody(t, [][]string{[]string{"1.2.3.4"}}))
+	req.URL.RawQuery = "zone=jdl-example.com&domain=somewhere.jdl-example.com&type=A"
+
+	harness.mux.ServeHTTP(recorder, req)
+	rz := recorder.Result()
+
+	if rz.StatusCode != 200 {
+		t.Errorf("Expected 200 response, but status was %s \n%s", rz.Status, recorder.Body.String())
+	}
+	if strings.Index(recorder.Body.String(), "jdl-example.com") == -1 {
+		t.Errorf("Body doesn't include zone name: %q", recorder.Body.String())
 	}
 }

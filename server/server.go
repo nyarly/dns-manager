@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net"
 	"net/http"
@@ -98,9 +99,30 @@ func (s *Server) buildRouter() *http.ServeMux {
 
 func (s *Server) indexPage(rw http.ResponseWriter, req *http.Request) {
 	fmt.Fprintln(rw, "/zone{?name} Zone manipulation")
-	fmt.Fprintln(rw, "/record{?zone,domain,type} Zone manipulation")
+	fmt.Fprintln(rw, "/record{?zone,domain,type} Record manipulation")
 }
 
 func methodNotAllowed(rw http.ResponseWriter) {
 	rw.WriteHeader(405)
+}
+
+func proxyAPIResponse(rw http.ResponseWriter, rz *http.Response, body interface{}, err error) {
+	if rz == nil {
+		rw.WriteHeader(503)
+	} else {
+		rw.WriteHeader(rz.StatusCode)
+	}
+
+	if err != nil {
+		fmt.Fprintf(rw, "problem updating NS1: %v", err)
+		return
+	}
+
+	if rz.StatusCode != 200 || body == nil {
+		return
+	}
+
+	if err := json.NewEncoder(rw).Encode(body); err != nil {
+		panic(err) // XXX but we already wrote a status...
+	}
 }

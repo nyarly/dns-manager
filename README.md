@@ -10,6 +10,7 @@ Single module for command line and service, to simplify serialization.
 (see ec1e291ebdb40fac063f0f01a5508109d81cd1e4)
 
 Persistence: serving as a caching layer.
+NS1 is considered authoritative, but we'd like faster responses and to shield our request counts
 
 ## Future Work
 

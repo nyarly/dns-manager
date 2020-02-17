@@ -2,9 +2,10 @@ package server
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
+
+	"gopkg.in/ns1/ns1-go.v2/rest/model/dns"
 )
 
 func getZoneName(rw http.ResponseWriter, req *http.Request) string {
@@ -72,27 +73,6 @@ func (s *Server) deleteZone(rw http.ResponseWriter, req *http.Request) {
 	ctx := req.Context()
 	rz, err := s.deleteZoneAPI(ctx, name)
 	proxyAPIResponse(rw, rz, nil, err)
-}
-
-func proxyAPIResponse(rw http.ResponseWriter, rz *http.Response, body interface{}, err error) {
-	if rz == nil {
-		rw.WriteHeader(503)
-	} else {
-		rw.WriteHeader(rz.StatusCode)
-	}
-
-	if err != nil {
-		fmt.Fprintf(rw, "problem updating NS1: %v", err)
-		return
-	}
-
-	if rz.StatusCode != 200 || body == nil {
-		return
-	}
-
-	if err := json.NewEncoder(rw).Encode(body); err != nil {
-		panic(err) // XXX but we already wrote a status...
-	}
 }
 
 func (s *Server) getZoneAPI(ctx context.Context, name string) (*dns.Zone, *http.Response, error) {
