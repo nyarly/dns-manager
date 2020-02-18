@@ -19,11 +19,28 @@ type Server struct {
 	clientFn func(context.Context) ns1.Doer
 }
 
+type contextInjectingClient struct {
+	http ns1.Doer
+	ctx  context.Context
+}
+
+// LiveClient is a suitable implementation for New's httpClientFn
+func LiveClient(ctx context.Context) ns1.Doer {
+	return contextInjectingClient{
+		http: &http.Client{},
+		ctx:  ctx,
+	}
+}
+
+func (c contextInjectingClient) Do(rq *http.Request) (*http.Response, error) {
+	return c.http.Do(rq.WithContext(c.ctx))
+}
+
 // New constructs a Server object from
 //   address:      the address to listen on
 //   storage:      a persistence engine
-//   httpClient:   a properly configured http.Client to talk to NS1 with
 //   key:          an NS1 API Key
+//   httpClientFn: a factory function returning a properly configured http.Client to talk to NS1 with
 func New(address string, storage storage.Storage, key string, httpClientFn func(context.Context) ns1.Doer) *Server {
 	return &Server{
 		address:  address,
