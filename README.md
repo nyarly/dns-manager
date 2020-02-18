@@ -16,3 +16,6 @@ NS1 is considered authoritative, but we'd like faster responses and to shield ou
 
 * TTL on cache
 * Reduced interface (instead of transparent proxy of NS1)
+* Input validation: A, MX and SRV records have different answer forms
+* UI for multiple answers on a record
+* Listing zones and records

@@ -35,6 +35,7 @@ func (s *Server) getRecord(rw http.ResponseWriter, req *http.Request) {
 	if _, err := s.storage.RecordRecord(*zone); err != nil {
 		rw.WriteHeader(503)
 		fmt.Fprintf(rw, "problem recording zone: %v", err)
+		return
 	}
 	proxyAPIResponse(rw, rz, zone, err)
 }
@@ -49,14 +50,16 @@ func (s *Server) updateRecord(rw http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		rw.WriteHeader(503)
 		fmt.Fprintf(rw, "problem checking for zone: %v", err)
+		return
 	}
 
 	answers := [][]string{}
 	if err := json.NewDecoder(req.Body).Decode(&answers); err != nil {
 		rw.WriteHeader(400)
-		fmt.Fprintf(rw, "body of request ill formed: %v", err)
+		fmt.Fprintf(rw, "body of request ill formed: %v\n", err)
+		return
 	}
-  record := buildRecord(name, domain, kind, answers)
+	record := buildRecord(name, domain, kind, answers)
 
 	ctx := req.Context()
 
@@ -76,11 +79,11 @@ func (s *Server) updateRecord(rw http.ResponseWriter, req *http.Request) {
 
 func buildRecord(name, domain, kind string, answers [][]string) *dns.Record {
 	rr := dns.NewRecord(name, domain, kind)
-  for _, a := range answers {
-    ans := dns.NewAnswer(a)
-    rr.AddAnswer(ans)
-  }
-  return rr
+	for _, a := range answers {
+		ans := dns.NewAnswer(a)
+		rr.AddAnswer(ans)
+	}
+	return rr
 }
 
 func (s *Server) deleteRecord(rw http.ResponseWriter, req *http.Request) {

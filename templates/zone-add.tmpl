@@ -1,0 +1,6 @@
+Zone {{.Zone}} created!
+
+To publish your zone, you need to configure your registrar to use the following nameservers:
+{{ range .DNSServers -}}
+- {{.}}
+{{ end }}
