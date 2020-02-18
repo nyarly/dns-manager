@@ -71,19 +71,6 @@ func (tf textFile) store(stored *Stored) error {
 	return enc.Encode(stored)
 }
 
-func (tf textFile) listZones() ([]string, error) {
-	f, err := os.Open(tf.path)
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-	contents, err := ioutil.ReadAll(f)
-	if err != nil {
-		return nil, err
-	}
-	return strings.Split(string(contents), "\n"), nil
-}
-
 func (tf textFile) GetZone(name string) (*dns.Zone, error) {
 	stored, err := tf.load()
 	if err != nil {
