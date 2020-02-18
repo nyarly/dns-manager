@@ -30,6 +30,20 @@ func (s *Server) getRecord(rw http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	existing, err := s.storage.GetRecord(name, domain, kind)
+	if err != nil {
+		rw.WriteHeader(503)
+		fmt.Fprintf(rw, "problem checking for zone: %v", err)
+	}
+
+	if existing != nil {
+		if err := json.NewEncoder(rw).Encode(existing); err != nil {
+			rw.WriteHeader(503)
+			fmt.Fprintf(rw, "problem serializing cached zone: %v", err)
+		}
+		return
+	}
+
 	ctx := req.Context()
 	zone, rz, err := s.getRecordAPI(ctx, name, domain, kind)
 	if _, err := s.storage.RecordRecord(*zone); err != nil {

@@ -71,9 +71,6 @@ func buildBody(t *testing.T, v interface{}) io.Reader {
 	return &b
 }
 
-// TODO assertions about storage use
-// Body contents
-
 func TestGetZone(t *testing.T) {
 	recorder := httptest.NewRecorder()
 	harness := testHarness(t)
@@ -89,6 +86,32 @@ func TestGetZone(t *testing.T) {
 	}
 	if strings.Index(recorder.Body.String(), "jdl-example.com") == -1 {
 		t.Errorf("Body doesn't include zone name: %q", recorder.Body.String())
+	}
+}
+
+func TestGetCachedZone(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	harness := testHarness(t)
+	defer harness.stopVCR()
+
+  harness.store.MatchMethod("GetZone", spies.AnyArgs, &dns.Zone{
+    Zone: "jdl-example.com",
+    TTL: 999999,
+  }, nil)
+
+	req := httptest.NewRequest("GET", "/zone", nil)
+	req.URL.RawQuery = "name=jdl-example.com"
+	harness.mux.ServeHTTP(recorder, req)
+	rz := recorder.Result()
+
+	if rz.StatusCode != 200 {
+		t.Errorf("Expected 200 response, but status was %s \n%s", rz.Status, recorder.Body.String())
+	}
+	if strings.Index(recorder.Body.String(), "jdl-example.com") == -1 {
+		t.Errorf("Body doesn't include zone name: %q", recorder.Body.String())
+	}
+	if strings.Index(recorder.Body.String(), "999999") == -1 {
+		t.Errorf("Body doesn't include sentinal value: %q", recorder.Body.String())
 	}
 }
 
@@ -146,6 +169,52 @@ func TestDeleteZone(t *testing.T) {
 	}
 	if len(recorder.Body.String()) > 0 {
 		t.Errorf("Body is not empty: %q", recorder.Body.String())
+	}
+}
+
+func TestGetRecord(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	harness := testHarness(t)
+	defer harness.stopVCR()
+
+	req := httptest.NewRequest("GET", "/record", nil)
+	req.URL.RawQuery = "zone=jdl-example.com&domain=somewhere.jdl-example.com&type=A"
+	harness.mux.ServeHTTP(recorder, req)
+	rz := recorder.Result()
+
+	if rz.StatusCode != 200 {
+		t.Errorf("Expected 200 response, but status was %s \n%s", rz.Status, recorder.Body.String())
+	}
+	if strings.Index(recorder.Body.String(), "1.2.3.4") == -1 {
+		t.Errorf("Body doesn't include upstream data: %q", recorder.Body.String())
+	}
+}
+
+func TestGetCachedRecord(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	harness := testHarness(t)
+	defer harness.stopVCR()
+
+  harness.store.MatchMethod("GetRecord", spies.AnyArgs, &dns.Record{
+    Zone: "jdl-example.com",
+    Domain: "somewhere.jdl-example.com",
+    Type: "A",
+    TTL: 999999,
+  }, nil)
+
+	req := httptest.NewRequest("GET", "/record", nil)
+	req.URL.RawQuery = "zone=jdl-example.com&domain=somewhere.jdl-example.com&type=A"
+	harness.mux.ServeHTTP(recorder, req)
+	rz := recorder.Result()
+
+	if rz.StatusCode != 200 {
+		t.Errorf("Expected 200 response, but status was %s \n%s", rz.Status, recorder.Body.String())
+	}
+	if strings.Index(recorder.Body.String(), "jdl-example.com") == -1 {
+		t.Errorf("Body doesn't include zone name: %q", recorder.Body.String())
+	}
+	if strings.Index(recorder.Body.String(), "999999") == -1 {
+		t.Errorf("Body doesn't include sentinal value: %q", recorder.Body.String())
 	}
 }
 

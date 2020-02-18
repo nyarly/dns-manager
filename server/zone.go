@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 
@@ -23,6 +24,20 @@ func getZoneName(rw http.ResponseWriter, req *http.Request) string {
 func (s *Server) getZone(rw http.ResponseWriter, req *http.Request) {
 	name := getZoneName(rw, req)
 	if name == "" {
+		return
+	}
+
+	existing, err := s.storage.GetZone(name)
+	if err != nil {
+		rw.WriteHeader(503)
+		fmt.Fprintf(rw, "problem checking for zone: %v", err)
+	}
+
+	if existing != nil {
+		if err := json.NewEncoder(rw).Encode(existing); err != nil {
+			rw.WriteHeader(503)
+			fmt.Fprintf(rw, "problem serializing cached zone: %v", err)
+		}
 		return
 	}
 

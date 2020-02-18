@@ -1,0 +1,61 @@
+---
+version: 1
+interactions:
+- request:
+    body: ""
+    form: {}
+    headers:
+      User-Agent:
+      - go-ns1/2.2.0
+    url: https://api.nsone.net/v1/zones/jdl-example.com/somewhere.jdl-example.com/A
+    method: GET
+  response:
+    body: |
+      {"domain":"somewhere.jdl-example.com","zone":"jdl-example.com","use_client_subnet":true,"answers":[{"answer":["1.2.3.4"],"meta":{},"id":"5e4b1fd747e68a00849085d6"}],"id":"5e4b1fd747e68a00849085d7","regions":{},"meta":{},"link":null,"filters":[],"ttl":3600,"tier":1,"type":"A","networks":[0]}
+    headers:
+      Cache-Control:
+      - no-cache
+      - private, max-age=0, no-cache, no-store
+      Cf-Cache-Status:
+      - DYNAMIC
+      Cf-Ray:
+      - 566ce5f1a84ce7cd-LAX
+      Content-Security-Policy-Report-Only:
+      - 'script-src blob: ''unsafe-inline'' ''unsafe-eval'' ''self'' *.nsone.net *.nsone.co;
+        report-uri https://cspaudit.prod.ns1.dev'
+      Content-Type:
+      - application/json
+      Date:
+      - Tue, 18 Feb 2020 03:26:12 GMT
+      Etag:
+      - W/"fe6590966282ef7536eb0f286787d71ae6dd020c"
+      Expect-Ct:
+      - max-age=604800, report-uri="https://report-uri.cloudflare.com/cdn-cgi/beacon/expect-ct"
+      Expires:
+      - Tue, 18 Feb 2020 03:26:11 GMT
+      Pragma:
+      - no-cache
+      Server:
+      - cloudflare
+      Set-Cookie:
+      - __cfduid=d44180a32ece08a633db15feae408d9371581996372; expires=Thu, 19-Mar-20
+        03:26:12 GMT; path=/; domain=.nsone.net; HttpOnly; SameSite=Lax
+      Strict-Transport-Security:
+      - max-age=63072000; includeSubdomains; preload
+      X-Content-Type-Options:
+      - nosniff
+      X-Frame-Options:
+      - SAMEORIGIN
+      X-Ratelimit-By:
+      - customer
+      X-Ratelimit-Limit:
+      - "900"
+      X-Ratelimit-Period:
+      - "300"
+      X-Ratelimit-Remaining:
+      - "899"
+      X-Xss-Protection:
+      - 1; mode=block
+    status: 200 OK
+    code: 200
+    duration: ""
